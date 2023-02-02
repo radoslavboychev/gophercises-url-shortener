@@ -1,7 +1,6 @@
 package urlshort
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -21,9 +20,14 @@ type YAMLFile struct {
 // If the path is not provided in the map, then the fallback
 // http.Handler will be called instead.
 func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.HandlerFunc {
-	//	TODO: Implement this...
-
-	return nil
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		url := pathsToUrls[r.URL.Path]
+		if url != "" {
+			http.Redirect(w, r, url, http.StatusPermanentRedirect)
+		} else {
+			fallback.ServeHTTP(w, r)
+		}
+	})
 }
 
 // YAMLHandler will parse the provided YAML and then return
@@ -44,18 +48,23 @@ func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.Handl
 // a mapping of paths to urls.
 func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
 
-	f, err := os.ReadFile("./file.yaml")
+	_, err := os.Stderr.Read(yml)
 	if err != nil {
 		return nil, err
 	}
 
 	var y YAMLFile
 
-	if err := yaml.Unmarshal(f, &y); err != nil {
+	if err := yaml.Unmarshal(yml, &y); err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(y)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if y.URL != "" {
+			http.Redirect(w, r, y.Path, http.StatusPermanentRedirect)
+		} else {
+			fallback.ServeHTTP(w, r)
+		}
+	}), nil
 
-	return nil, nil
 }

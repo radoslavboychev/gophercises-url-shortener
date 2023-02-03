@@ -3,7 +3,6 @@ package urlshort
 import (
 	"log"
 	"net/http"
-	"os"
 
 	"gopkg.in/yaml.v3"
 )
@@ -48,13 +47,7 @@ func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.Handl
 // a mapping of paths to urls.
 func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
 
-	_, err := os.Stderr.Read(yml)
-	if err != nil {
-		return nil, err
-	}
-
 	var y YAMLFile
-
 	if err := yaml.Unmarshal(yml, &y); err != nil {
 		log.Fatal(err)
 	}
@@ -66,5 +59,4 @@ func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
 			fallback.ServeHTTP(w, r)
 		}
 	}), nil
-
 }

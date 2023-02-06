@@ -1,38 +1,62 @@
 package main
 
 import (
+	"bytes"
+	"flag"
 	"fmt"
-	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	urlshort "github.com/radoslavboychev/gophercises/url-shortener/handlers"
 )
 
+var (
+	pathsFile = flag.String("pathsFile", "paths.yml", "File containing shortened paths to URLs")
+)
+
+func getFileBytes(fileName string) []byte {
+	f, err := os.Open(fileName)
+	if err != nil {
+		log.Fatalf("Could not open %s", fileName)
+	}
+
+	buf := new(bytes.Buffer)
+	_, err = buf.ReadFrom(f)
+	if err != nil {
+		log.Fatalf("Could not open %s", fileName)
+	}
+
+	return buf.Bytes()
+
+}
+
 func main() {
 	mux := defaultMux()
 
-	// Build the MapHandler using the mux as the fallback
-	pathsToUrls := map[string]string{
-		"/urlshort-godoc": "https://godoc.org/github.com/gophercises/urlshort",
-		"/yaml-godoc":     "https://godoc.org/gopkg.in/yaml.v2",
-	}
-	mapHandler := urlshort.MapHandler(pathsToUrls, mux)
+	flag.Parse()
 
-	// Build the YAMLHandler using the mapHandler as the
-	// fallback
-	yamlFile, err := ioutil.ReadFile("./file.yaml")
-	if err != nil {
-		return
-	}
+	ext := filepath.Ext(*pathsFile)
 
-	yamlHandler, err := urlshort.YAMLHandler(yamlFile, mapHandler)
-	if err != nil {
-		return
+	var handler http.Handler
+	var err error
+	if ext == ".yml" {
+		handler, err = urlshort.YAMLHandler(getFileBytes(*pathsFile), mux)
+		if err != nil {
+			panic(err)
+		}
+	} else if ext == ".json" {
+		handler, err = urlshort.JSONHandler(getFileBytes(*pathsFile), mux)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		log.Fatal("Paths file needs to be either a YAML, a JSON or a bolt DB file")
 	}
 
 	fmt.Println("Starting the server on :8080")
-	http.ListenAndServe(":8080", yamlHandler)
-	// http.ListenAndServe(":8080", mapHandler)
+	http.ListenAndServe(":8080", handler)
 }
 
 func defaultMux() *http.ServeMux {
